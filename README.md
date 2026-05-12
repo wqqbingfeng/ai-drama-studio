@@ -1,11 +1,20 @@
-<div align="center">
+# AI Drama Studio — 多 Agent 制片框架
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+基于浏览器的 AI Agent 框架，用于 AI 真人剧制作。6 个专业 AI Agent 自动协作完成从编剧到后期合成的完整流程。
 
-  <h1>Built with AI Studio</h2>
+## 快速开始
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+```bash
+npm install
+npm run dev:full    # 一键启动（代理 + 前端）
+```
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+访问 `http://localhost:5173`，打开设置配置中转站地址和 API Key 即可使用。
 
-</div>
+## 技术栈
+
+Vite 8 + React 19 + TypeScript 6 + Tailwind CSS v4 + Zustand + Framer Motion
+
+## 项目结构
+
+详见 [CLAUDE.md](./CLAUDE.md)（完整的架构文档、数据流图、Agent 流水线说明、已知问题和约定）。

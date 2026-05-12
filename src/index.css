@@ -1,0 +1,67 @@
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/600.css";
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #09090b;
+  --color-surface-alt: #0c0c0e;
+  --color-surface-inverse: #6366f1;
+  --color-border: #27272a;
+  --color-text: #e4e4e7;
+  --color-text-muted: #71717a;
+  --color-accent: #6366f1;
+  --color-accent-subtle: rgba(99, 102, 241, 0.05);
+  --color-success: #22c55e;
+  --color-warn: #f59e0b;
+  --color-error: #ef4444;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-mono: monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #09090b;
+    --color-surface-alt: #0c0c0e;
+    --color-surface-inverse: #6366f1;
+    --color-border: #27272a;
+    --color-text: #e4e4e7;
+    --color-text-muted: #71717a;
+  }
+
+  body {
+    background: #09090b;
+  }
+}
+
+/* 强制覆盖所有的模式为黑夜主题 */
+:root {
+  --color-surface: #09090b;
+  --color-surface-alt: #0c0c0e;
+  --color-surface-inverse: #6366f1;
+  --color-border: #27272a;
+  --color-text: #e4e4e7;
+  --color-text-muted: #71717a;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-surface);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: white;
+}
+
+.stage-canvas {
+  background-image: radial-gradient(#27272a 1px, transparent 1px);
+  background-size: 24px 24px;
+}
