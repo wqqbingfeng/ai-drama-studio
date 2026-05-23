@@ -55,6 +55,7 @@ export abstract class BaseAgent {
     upstreamRole: AgentRole,
     upstreamOutput: AgentOutput,
   ): Promise<string | null> {
+    void ctx; void upstreamRole; void upstreamOutput;
     return null // 默认不审核
   }
 

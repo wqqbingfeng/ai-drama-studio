@@ -6,6 +6,7 @@ export class GptImageAdapter implements IGateway {
   }
 
   async generateImage(_prompt: ImagePrompt): Promise<ImageResult> {
+    void _prompt;
     // TODO: implement GPT Image 2 API call
     // 需要 API endpoint 和 key
     throw new Error('GPT Image 2 not yet configured')

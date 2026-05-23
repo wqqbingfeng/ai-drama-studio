@@ -140,6 +140,22 @@ export class Orchestrator {
     const config = useProductionStore.getState().agentConfigs[role]
     if (config?.systemPrompt) {
       agent.systemPrompt = config.systemPrompt
+    } else {
+      // Find matching agent from loadStoredAgents
+      try {
+        const { loadStoredAgents } = await import('../models/agents-list')
+        const agents = loadStoredAgents()
+        const savedId = localStorage.getItem(`filmai-bound-agent-${role}`)
+        let matched = savedId ? agents.find(a => a.id === savedId) : null
+        if (!matched) {
+          matched = agents.find(a => a.role === role)
+        }
+        if (matched) {
+          agent.systemPrompt = matched.systemPrompt
+        }
+      } catch {
+        // Fallback silently if any import issue
+      }
     }
 
     return agent

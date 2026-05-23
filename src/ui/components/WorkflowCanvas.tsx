@@ -1,339 +1,426 @@
-import { memo, useCallback, useEffect, useState, useRef } from 'react'
+import { useState } from 'react'
 import {
-  ReactFlow,
-  Handle,
-  Position,
-  Background,
-  Controls,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  Connection,
-  Edge,
-  Node,
-  ConnectionLineType,
-  useReactFlow,
-  ReactFlowProvider
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
-import dagre from 'dagre'
-import { Settings, CheckCircle2, XCircle, Loader2, Circle, Edit3, Plus, RotateCcw, MousePointer2, Hand, Share2, Maximize, SlidersHorizontal, MoreHorizontal, FileText, LayoutTemplate, Shapes, Clapperboard, Video, Mic, Scissors, Film, Users } from 'lucide-react'
+  Settings, Edit3, Plus, Hand, FileText, Shapes,
+  Clapperboard, Video, Film, Users, Sparkles,
+  CheckCircle2, AlertCircle, Loader2, Play, Trash2, ChevronDown, Check
+} from 'lucide-react'
 import { AgentLabels } from '../../models/production'
 import type { AgentRole, AgentOutput } from '../../models/production'
-import { TaskFlow, DEFAULT_PRODUCTION_FLOW } from '../../models/workflow'
+import { TaskFlow } from '../../models/workflow'
 import { useProductionStore } from '../../state/store'
 
 const getRoleIcon = (role: string) => {
   switch(role) {
-    case 'screenwriter': return <Edit3 size={16} className="text-[#E2AB46]" />
-    case 'character_designer': return <Users size={16} className="text-[#E2AB46]" />
-    case 'scene_designer': return <Shapes size={16} className="text-[#51C49F]" />
-    case 'director': return <Clapperboard size={16} className="text-[#9D52F5]" />
-    case 'cinematographer': return <Video size={16} className="text-[#4EADF6]" />
-    case 'post_production': return <Film size={16} className="text-[#F5679E]" />
-    default: return <FileText size={16} className="text-[#E2AB46]" />
+    case 'producer': return <Settings size={18} className="text-[#34A853]" />
+    case 'screenwriter': return <Edit3 size={18} className="text-[#E2AB46]" />
+    case 'character_designer': return <Users size={18} className="text-[#E2AB46]" />
+    case 'art_designer': return <Shapes size={18} className="text-[#51C49F]" />
+    case 'scene_designer': return <Shapes size={18} className="text-[#51C49F]" />
+    case 'prop_designer': return <Hand size={18} className="text-[#51C49F]" />
+    case 'director': return <Clapperboard size={18} className="text-[#9D52F5]" />
+    case 'cinematographer': return <Video size={18} className="text-[#4EADF6]" />
+    case 'vfx_designer': return <Sparkles size={18} className="text-[#4EADF6]" />
+    case 'post_production': return <Film size={18} className="text-[#F5679E]" />
+    default: return <FileText size={18} className="text-[#E2AB46]" />
   }
 }
 
 const getRoleSubtext = (role: string) => {
   switch(role) {
-    case 'screenwriter': return '剧本生成与优化'
-    case 'character_designer': return '角色造型与设定'
-    case 'scene_designer': return '场景概念与地图'
-    case 'director': return '镜头调度与视听'
-    case 'cinematographer': return '画面生成与渲染'
-    case 'post_production': return '合成出片'
+    case 'producer': return '制片统一审核与验收协调'
+    case 'screenwriter': return '全集剧本拆解与15s分镜规划'
+    case 'character_designer': return '角色概念特质描述与画质词'
+    case 'art_designer': return '全景美术统一设计规划与提示词描述'
+    case 'scene_designer': return '场景概念氛围描述与定位'
+    case 'prop_designer': return '核心道具美术资产生成特征'
+    case 'director': return '分镜镜头提示词、视角调度'
+    case 'cinematographer': return '各段分镜提示词、光影质感'
+    case 'vfx_designer': return '重要道具动效与CG技术定义'
+    case 'post_production': return '最终视听合成与成品输出'
     default: return '数据处理'
   }
 }
 
-function statusIndicator(status?: string) {
-  switch (status) {
-    case 'done': return <><div className="w-2 h-2 rounded-full bg-[#34A853]"></div><span className="text-[#34A853]">已完成</span></>
-    case 'failed': return <><div className="w-2 h-2 rounded-full bg-[#EA4335]"></div><span className="text-[#EA4335]">执行失败</span></>
-    case 'running': return <><div className="w-2 h-2 rounded-full bg-[#E2AB46] animate-pulse"></div><span className="text-[#E2AB46]">执行中</span></>
-    case 'pending': return <><div className="w-2 h-2 rounded-full bg-[#8AB4F8]"></div><span className="text-[#8AB4F8]">已就绪</span></>
-    default: return <><div className="w-2 h-2 rounded-full bg-[#833AB4]"></div><span className="text-[#833AB4]">等待中</span></>
-  }
-}
-
-export const AgentNode = memo(({ data }: any) => {
-  const { role, status, isCurrent, onEdit, onConfig } = data
-
-  const statusColor = status === 'done' 
-    ? 'border-[#2A2A35]'
-    : status === 'failed' 
-      ? 'border-[#EA4335] shadow-[0_0_10px_rgba(234,67,53,0.2)]'
-      : isCurrent 
-        ? 'border-[#E2AB46] shadow-[0_0_15px_rgba(226,171,70,0.2)] animate-pulse'
-        : 'border-[#2A2A35]'
-
-  return (
-    <div className={`relative px-4 py-4 pr-12 bg-[#1A1A1F] rounded-2xl border ${statusColor} min-w-[220px] transition-colors group`}>
-      <Handle type="target" position={Position.Left} className="!bg-[#666] !w-2 !h-2 !border-0 !left-[-4px]" />
-      
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-[#22222A] flex items-center justify-center shrink-0">
-           {getRoleIcon(role)}
-        </div>
-        <div className="flex flex-col gap-1">
-           <span className="text-[14px] font-medium text-[#e5e5e5] leading-none">{AgentLabels[role as AgentRole] || role}</span>
-           <span className="text-[11px] text-[#66666e] truncate max-w-[120px] leading-none">{getRoleSubtext(role)}</span>
-        </div>
-      </div>
-      
-      <div className="flex items-center gap-1.5 mt-3 text-[11px]">
-         {statusIndicator(isCurrent ? 'running' : status)}
-      </div>
-
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {status === 'done' && (
-          <button 
-             title="编辑产出"
-             onClick={() => onEdit(role)} 
-             className="text-[#666] hover:text-[#e5e5e5] transition-colors p-1"
-          >
-            <Edit3 size={12} />
-          </button>
-        )}
-        <button 
-           title="配置 Agent"
-           onClick={() => onConfig(role)}
-           className="text-[#666] hover:text-[#e5e5e5] transition-colors p-1"
-        >
-          <Settings size={12} />
-        </button>
-      </div>
-
-      <Handle type="source" position={Position.Right} className="!bg-[#666] !w-2 !h-2 !border-0 !right-[-4px]" />
-    </div>
-  )
-})
-
-const nodeTypes = {
-  agentNode: AgentNode,
-}
-
-function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'LR') {
-  const dagreGraph = new dagre.graphlib.Graph()
-  dagreGraph.setDefaultEdgeLabel(() => ({}))
-  dagreGraph.setGraph({ rankdir: direction, align: 'DL', ranksep: 120, nodesep: 80 })
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: 240, height: 100 })
-  })
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target)
-  })
-
-  dagre.layout(dagreGraph)
-
-  const newNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id)
-    return {
-      ...node,
-      position: {
-        x: nodeWithPosition.x - 220 / 2,
-        y: nodeWithPosition.y - 80 / 2,
-      },
-    }
-  })
-
-  return { nodes: newNodes, edges }
+interface LogItem {
+  id?: string
+  agent: string
+  message: string
+  timestamp?: string | number
 }
 
 interface WorkflowCanvasProps {
   flow: TaskFlow
   outputs: Record<AgentRole, AgentOutput | null>
   currentAgent: AgentRole | null
-  logs: any[]
+  logs: LogItem[]
   onEdit: (role: AgentRole) => void
   onConfig: (role: AgentRole) => void
+  onRerun?: (role: AgentRole) => void
 }
 
-export function WorkflowCanvas(props: WorkflowCanvasProps) {
-  return (
-    <ReactFlowProvider>
-      <WorkflowCanvasContent {...props} />
-    </ReactFlowProvider>
-  )
-}
-
-function WorkflowCanvasContent({ flow, outputs, currentAgent, logs, onEdit, onConfig }: WorkflowCanvasProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+export function WorkflowCanvas({ flow, outputs, currentAgent, logs, onEdit, onConfig, onRerun }: WorkflowCanvasProps) {
   const setFlow = useProductionStore(s => s.setFlow)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [menuPos, setMenuPos] = useState<{ x: number, y: number } | null>(null)
-
-  // Layout initialization
-  useEffect(() => {
-    const initialNodes: Node[] = flow.map((task) => {
-      const output = outputs[task.role]
-      const status = output ? output.status : currentAgent === task.role ? 'running' : 'pending'
-      const isCurrent = currentAgent === task.role
-      const message = logs.filter(l => l.agent === task.role).pop()?.message
-      
-      return {
-        id: task.role,
-        type: 'agentNode',
-        data: { role: task.role, status, isCurrent, message, onEdit, onConfig },
-        position: { x: 0, y: 0 },
-      }
-    })
-
-    const initialEdges: Edge[] = flow.flatMap((task) => 
-      task.dependsOn.map((dep, idx) => ({
-        id: `${dep}-${task.role}-${idx}`,
-        source: dep,
-        target: task.role,
-        type: 'smoothstep',
-        animated: currentAgent === task.role,
-        style: { stroke: '#44444c', strokeWidth: 1.5 }
-      }))
-    )
-
-    // Prevent overriding dragged positions by only layouting if it's the first time
-    // Actually, DAG layout overrides dragging unless we track if user dragged it.
-    // For now, always re-layout on flow change.
-    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(initialNodes, initialEdges)
-    setNodes(layoutedNodes)
-    setEdges(layoutedEdges)
-  }, [flow, outputs, currentAgent, logs, onEdit, onConfig, setNodes, setEdges])
-
-  const onConnect = useCallback((params: Connection) => {
-    setEdges((eds) => addEdge({ ...params, type: 'smoothstep', style: { stroke: '#44444c', strokeWidth: 1.5 } }, eds))
-    // Update store flow
-    if (params.target && params.source) {
-      setFlow(flow.map(f => {
-        if (f.role === params.target) {
-          return { ...f, dependsOn: [...new Set([...f.dependsOn, params.source as AgentRole])] }
-        }
-        return f
-      }))
-    }
-  }, [flow, setEdges, setFlow])
-
-  const onEdgesDelete = useCallback((deleted: Edge[]) => {
-    // Reconstruct dependsOn based on remaining edges
-    const deletedSources = deleted.map(d => ({ source: d.source, target: d.target }))
-    setFlow(flow.map(f => {
-      const depsToRemove = deletedSources.filter(d => d.target === f.role).map(d => d.source)
-      if (depsToRemove.length > 0) {
-        return { ...f, dependsOn: f.dependsOn.filter(dep => !depsToRemove.includes(dep)) }
-      }
-      return f
-    }))
-  }, [flow, setFlow])
-
-  const handleContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
-    event.preventDefault()
-    if (!containerRef.current) return
-    const bounds = containerRef.current.getBoundingClientRect()
-    setMenuPos({
-      x: event.clientX - bounds.left,
-      y: event.clientY - bounds.top
-    })
-  }, [])
-
-  const closeMenu = () => setMenuPos(null)
-
-  const addAgentToCanvas = useCallback((role: AgentRole) => {
-    if (!flow.some(f => f.role === role)) {
-       setFlow([...flow, { role, dependsOn: [] }])
-    }
-    closeMenu()
-  }, [flow, setFlow])
+  const flowMode = useProductionStore(s => s.flowMode)
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [activeDepDropdown, setActiveDepDropdown] = useState<AgentRole | null>(null)
 
   const ALL_AGENTS_LIST: AgentRole[] = [
+    'producer',
     'screenwriter',
+    'art_designer',
     'character_designer',
     'scene_designer',
+    'prop_designer',
     'director',
     'cinematographer',
+    'vfx_designer',
     'post_production',
   ]
 
+  const getDeptRoles = (deptId: string): AgentRole[] => {
+    let deptStandards: AgentRole[] = []
+    if (deptId === 'script_and_planning') {
+      deptStandards = ['producer', 'screenwriter']
+    } else if (deptId === 'art_and_assets') {
+      deptStandards = flowMode === 'streamlined' ? ['art_designer'] : ['character_designer', 'scene_designer', 'prop_designer']
+    } else if (deptId === 'visual_production') {
+      deptStandards = flowMode === 'streamlined' ? ['director', 'post_production'] : ['director', 'cinematographer', 'vfx_designer', 'post_production']
+    }
+
+    const deptAllPossible = deptId === 'script_and_planning' 
+      ? ['producer', 'screenwriter']
+      : deptId === 'art_and_assets'
+        ? ['art_designer', 'character_designer', 'scene_designer', 'prop_designer']
+        : ['director', 'cinematographer', 'vfx_designer', 'post_production']
+
+    const extraInFlow = flow
+      .map(f => f.role)
+      .filter(r => deptAllPossible.includes(r) && !deptStandards.includes(r))
+
+    return Array.from(new Set([...deptStandards, ...extraInFlow]))
+  }
+
+  const DEPARTMENTS = [
+    {
+      id: 'script_and_planning',
+      title: '1. 剧本策划部 (Scripting Group)',
+      borderColor: 'border-[#E2AB46]/20',
+      titleColor: 'text-[#E2AB46]',
+      roles: getDeptRoles('script_and_planning')
+    },
+    {
+      id: 'art_and_assets',
+      title: '2. 美术设计部 (Art Assets Group)',
+      borderColor: 'border-[#51C49F]/20',
+      titleColor: 'text-[#51C49F]',
+      roles: getDeptRoles('art_and_assets')
+    },
+    {
+      id: 'visual_production',
+      title: '3. 视频镜头部 (Directing & Video)',
+      borderColor: 'border-[#4EADF6]/20',
+      titleColor: 'text-[#4EADF6]',
+      roles: getDeptRoles('visual_production')
+    }
+  ]
+
+  const addAgentToFlow = (role: AgentRole) => {
+    if (!flow.some(f => f.role === role)) {
+      setFlow([...flow, { role, dependsOn: [] }])
+    }
+    setShowAddMenu(false)
+  }
+
+  const removeAgentFromFlow = (role: AgentRole) => {
+    setFlow(flow
+      .filter(f => f.role !== role)
+      .map(f => ({
+        ...f,
+        dependsOn: f.dependsOn.filter(d => d !== role)
+      }))
+    )
+  }
+
+  const toggleDependency = (role: AgentRole, dependency: AgentRole) => {
+    const task = flow.find(f => f.role === role)
+    if (!task) return
+    const isAlreadyDep = task.dependsOn.includes(dependency)
+    const newDepends = isAlreadyDep
+      ? task.dependsOn.filter(d => d !== dependency)
+      : [...task.dependsOn, dependency]
+
+    setFlow(flow.map(f => f.role === role ? { ...f, dependsOn: newDepends } : f))
+  }
+
   return (
-    <div ref={containerRef} className="w-full h-full relative cursor-default bg-[#0E0E11]">
-      <div className="absolute top-4 left-4 z-10 flex gap-2">
-         {/* Toolbar */}
-         <div className="flex items-center bg-[#1A1A1F] border border-[#2A2A35] rounded-lg p-1 shadow-lg">
-           <button className="p-1.5 rounded-md text-[#E2AB46] bg-[#2A2A35] hover:text-[#E2AB46] transition-colors"><MousePointer2 size={16} /></button>
-           <button className="p-1.5 rounded-md text-[#888] hover:text-[#e5e5e5] hover:bg-[#2A2A35] transition-colors"><Hand size={16} /></button>
-           <button className="p-1.5 rounded-md text-[#888] hover:text-[#e5e5e5] hover:bg-[#2A2A35] transition-colors"><Share2 size={16} /></button>
-           <button className="p-1.5 rounded-md text-[#888] hover:text-[#e5e5e5] hover:bg-[#2A2A35] transition-colors"><Maximize size={16} /></button>
-           <button className="p-1.5 rounded-md text-[#888] hover:text-[#e5e5e5] hover:bg-[#2A2A35] transition-colors"><SlidersHorizontal size={16} /></button>
-           <button className="p-1.5 rounded-md text-[#888] hover:text-[#e5e5e5] hover:bg-[#2A2A35] transition-colors"><MoreHorizontal size={16} /></button>
-         </div>
-      </div>
-
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onEdgesDelete={onEdgesDelete}
-        connectionLineType={ConnectionLineType.SmoothStep}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.2}
-        proOptions={{ hideAttribution: true }}
-        onPaneContextMenu={handleContextMenu}
-        onClick={closeMenu}
-        defaultEdgeOptions={{ type: 'smoothstep' }}
-      >
-        <Background color="#2a2a35" gap={24} size={1} />
-      </ReactFlow>
-
-      {/* Minimap (mock) */}
-      <div className="absolute bottom-4 right-4 z-10 w-32 h-20 bg-[#1A1A1F] border border-[#2A2A35] rounded-xl flex items-center justify-center p-2">
-         {/* Simplified minimap visualization */}
-         <div className="relative w-full h-full">
-           <div className="absolute inset-0 border border-[#E2AB46] bg-[rgba(226,171,70,0.1)] rounded pointer-events-none z-10"></div>
-           <div className="flex gap-1 h-full items-center justify-center opacity-40">
-             <div className="w-3 h-2 bg-[#E2AB46] rounded-sm"></div>
-             <div className="w-4 border-t border-[#666]"></div>
-             <div className="flex flex-col gap-1">
-               <div className="w-3 h-2 bg-[#51C49F] rounded-sm"></div>
-               <div className="w-3 h-2 bg-[#9D52F5] rounded-sm"></div>
-             </div>
-             <div className="w-4 border-t border-[#666]"></div>
-             <div className="w-3 h-2 bg-[#F5679E] rounded-sm"></div>
-           </div>
-           <Maximize size={10} className="absolute top-1 right-1 text-[#666]" />
-         </div>
-      </div>
-
-      {/* Custom Context Menu */}
-      {menuPos && (
-        <div 
-           className="absolute z-50 bg-[#18181b] border border-[#2a2a2a] rounded-xl shadow-2xl py-2 min-w-[180px] text-sm"
-           style={{ top: menuPos.y, left: menuPos.x }}
-        >
-          <div className="px-3 py-1.5 text-[10px] text-[#666] font-medium uppercase tracking-[0.1em] mb-1">招募 Agent 到画布</div>
-          <div className="max-h-[200px] overflow-y-auto custom-scrollbar">
-            {ALL_AGENTS_LIST.map(role => {
-               const exists = flow.some(f => f.role === role)
-               return (
-                 <button 
-                   key={role}
-                   disabled={exists}
-                   onClick={() => addAgentToCanvas(role)}
-                   className="w-full text-left px-4 py-2 hover:bg-[#2a2a2a] flex items-center justify-between transition-colors disabled:opacity-30 disabled:hover:bg-transparent text-[#e5e5e5]"
-                 >
-                   <span className="text-[13px]">{AgentLabels[role as AgentRole] || role}</span>
-                   <Plus size={14} className={exists ? 'opacity-0' : 'text-[#888]'} />
-                 </button>
-               )
-            })}
-          </div>
+    <div className="w-full h-full flex flex-col bg-[#0A0A0C] text-[#D4D4D8] overflow-y-auto custom-scrollbar p-6">
+      {/* Dashboard Top Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-[#1A1A22] mb-6 gap-4">
+        <div>
+          <h2 className="text-base font-semibold tracking-wide flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#E2AB46]"></span>
+            AIGC 智能剧组流水线控制台
+          </h2>
+          <p className="text-[#666] text-xs mt-1">
+            实时调参、多岗位协同，由 AI 统筹完成文字拆解、美术设定和视频镜头的智能规划。
+          </p>
         </div>
-      )}
+        
+        {/* Quick Actions */}
+        <div className="flex items-center gap-3 relative shrink-0">
+          <button
+            onClick={() => setShowAddMenu(!showAddMenu)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#1A1A24] text-xs text-white border border-[#2d2d3d] rounded-xl hover:bg-[#252535] transition-colors"
+          >
+            <Plus size={14} />
+            招募 AI 员工加盟剧组
+          </button>
+          
+          {showAddMenu && (
+            <div className="absolute top-11 right-0 z-50 bg-[#121216] border border-[#26262e] rounded-xl shadow-2xl py-2 min-w-[200px] text-xs">
+              <div className="px-3 py-2 text-[#555] font-semibold border-b border-[#1a1a22] mb-1">选择并解锁 AI 岗位</div>
+              <div className="max-h-[250px] overflow-y-auto custom-scrollbar">
+                {ALL_AGENTS_LIST.map(role => {
+                  const recruited = flow.some(f => f.role === role)
+                  return (
+                    <button
+                      key={role}
+                      disabled={recruited}
+                      onClick={() => addAgentToFlow(role)}
+                      className={`w-full text-left px-4 py-2.5 hover:bg-[#1C1C24] flex items-center justify-between transition-colors ${
+                        recruited ? 'text-[#444] cursor-not-allowed' : 'text-[#E5E5E5]'
+                      }`}
+                    >
+                      <span>{AgentLabels[role] || role}</span>
+                      {recruited ? (
+                        <span className="text-[10px] text-[#E2AB46]">已进组</span>
+                      ) : (
+                        <Plus size={12} className="text-[#888]" />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Production Phases Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+        {DEPARTMENTS.map(dept => {
+          return (
+            <div key={dept.id} className={`flex flex-col border ${dept.borderColor} bg-[#0D0D10]/50 rounded-2xl p-4 min-h-[400px]`}>
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#20202a]/40">
+                <span className={`text-xs font-bold tracking-wide ${dept.titleColor}`}>{dept.title}</span>
+                <span className="text-[10px] text-[#555] font-mono">
+                  {flow.filter(f => dept.roles.includes(f.role)).length} 个活跃
+                </span>
+              </div>
+
+              <div className="space-y-4 flex-1">
+                {dept.roles.map(role => {
+                  const task = flow.find(f => f.role === role)
+                  const output = outputs[role]
+                  const isCurrent = currentAgent === role
+                  const status = output ? output.status : isCurrent ? 'running' : task ? 'pending' : 'not_recruited'
+
+                  // If not yet recruited
+                  if (status === 'not_recruited') {
+                    return (
+                      <div
+                        key={role}
+                        className="border border-dashed border-[#1B1B22] rounded-2xl p-4 py-8 flex flex-col items-center justify-center text-center bg-[#070709]/10"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-[#15151a] flex items-center justify-center opacity-40 mb-2">
+                          {getRoleIcon(role)}
+                        </div>
+                        <span className="text-xs text-[#555] font-medium">{AgentLabels[role] || role}</span>
+                        <p className="text-[10px] text-[#444] mt-1 max-w-[150px] leading-relaxed">
+                          当前电影流水线未启用此 AIGC 协同。
+                        </p>
+                        <button
+                          onClick={() => addAgentToFlow(role)}
+                          className="mt-3 px-3 py-1 bg-[#15151c] text-[10px] border border-[#22222b] text-[#888] rounded-lg hover:text-white hover:border-[#333342] transition-colors"
+                        >
+                          一键招募进组
+                        </button>
+                      </div>
+                    )
+                  }
+
+                  // Active Agent Card
+                  const lastLog = logs.filter(l => l.agent === role).pop()?.message || ''
+
+                  return (
+                    <div
+                      key={role}
+                      className={`relative border rounded-2xl bg-[#111115] p-4 transition-all ${
+                        isCurrent 
+                          ? 'border-[#E2AB46] bg-[#141412] shadow-[0_0_15px_rgba(226,171,70,0.05)]' 
+                          : status === 'failed'
+                            ? 'border-red-500/30'
+                            : status === 'done'
+                              ? 'border-[#1E1E26] hover:border-[#2D2D3D]'
+                              : 'border-[#15151B]'
+                      }`}
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-[#191922] flex items-center justify-center shrink-0 border border-[#252532]/40">
+                            {getRoleIcon(role)}
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-semibold text-white tracking-wide">
+                              {AgentLabels[role] || role}
+                            </h4>
+                            <p className="text-[10px] text-[#666] truncate mt-0.5 max-w-[150px]">
+                              {getRoleSubtext(role)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Status Indicator */}
+                        <div className="flex items-center">
+                          {isCurrent || status === 'running' ? (
+                            <span className="flex items-center gap-1 text-[10px] text-[#E2AB46] bg-[#E2AB46]/10 px-2 py-0.5 rounded-full font-medium">
+                              <Loader2 size={10} className="animate-spin" />
+                              进行中
+                            </span>
+                          ) : status === 'done' ? (
+                            <span className="flex items-center gap-1 text-[10px] text-[#34A853] bg-[#34A853]/10 px-2 py-0.5 rounded-full font-medium">
+                              <CheckCircle2 size={10} />
+                              通过验收
+                            </span>
+                          ) : status === 'failed' ? (
+                            <span className="flex items-center gap-1 text-[10px] text-[#EA4335] bg-[#EA4335]/10 px-2 py-0.5 rounded-full font-medium">
+                              <AlertCircle size={10} />
+                              失败
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-[10px] text-[#888] bg-[#1A1A22] px-2 py-0.5 rounded-full font-medium">
+                              就绪
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Dependencies Toggler */}
+                      <div className="mt-3.5 pt-3.5 border-t border-[#1C1C26]/60 flex items-center justify-between text-[11px] relative">
+                        <span className="text-[#555] font-medium flex items-center gap-1">
+                          前置工作依赖
+                        </span>
+                        
+                        <button
+                          onClick={() => setActiveDepDropdown(activeDepDropdown === role ? null : role)}
+                          className="flex items-center gap-1 text-[#aaa] hover:text-white font-medium transition-colors"
+                        >
+                          <span className="max-w-[140px] truncate">
+                            {task?.dependsOn.length === 0 
+                              ? '无依赖 (首发启动)' 
+                              : task?.dependsOn.map(d => AgentLabels[d] || d).join(', ')
+                            }
+                          </span>
+                          <ChevronDown size={11} className={`transition-transform duration-200 ${activeDepDropdown === role ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {/* Dependency Dropdown Popover */}
+                        {activeDepDropdown === role && (
+                          <div className="absolute bottom-7 right-0 z-50 bg-[#16161C] border border-[#292936] rounded-xl shadow-2xl py-2 w-[220px] transition-all">
+                            <div className="px-3 py-1.5 text-[10px] text-[#666] font-semibold border-b border-[#20202a] mb-1">配置前置数据交互</div>
+                            <div className="max-h-[160px] overflow-y-auto custom-scrollbar">
+                              {flow.filter(f => f.role !== role).map(f => {
+                                const isChecked = task?.dependsOn.includes(f.role)
+                                return (
+                                  <button
+                                    key={f.role}
+                                    onClick={() => toggleDependency(role, f.role)}
+                                    className="w-full text-left px-3 py-1.5 hover:bg-[#20202F]/80 flex items-center justify-between text-xs text-[#E5E5E5] transition-colors"
+                                  >
+                                    <span>{AgentLabels[f.role] || f.role}</span>
+                                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${
+                                      isChecked ? 'bg-[#E2AB46] border-[#E2AB46]' : 'border-[#444]'
+                                    }`}>
+                                      {isChecked && <Check size={10} className="text-black" strokeWidth={3} />}
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            <div className="mt-1.5 border-t border-[#20202a] pt-1.5 px-3 flex justify-end">
+                              <button
+                                onClick={() => setActiveDepDropdown(null)}
+                                className="px-2 py-0.5 bg-[#252532] text-[9px] text-[#A0A0AB] hover:text-white rounded transition-colors"
+                              >
+                                完成设置
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Realtimer monospaced logs inside the card */}
+                      {lastLog && (
+                        <div className="mt-2.5 px-2.5 py-1.5 rounded-lg bg-[#070709] border border-[#16161D] font-mono text-[10px] text-[#888] leading-normal break-all">
+                          <span className="text-[#E2AB46] mr-1.5">●</span>
+                          {lastLog}
+                        </div>
+                      )}
+
+                      {/* Card Actions Footer */}
+                      <div className="mt-3.5 pt-3 border-t border-[#1C1C26]/40 flex items-center justify-between gap-2">
+                        {/* Settings Button */}
+                        <button
+                          onClick={() => onConfig(role)}
+                          className="flex items-center gap-1 text-[11px] text-[#888] hover:text-white transition-colors py-1 px-2.5 bg-[#17171E] hover:bg-[#20202B]/80 rounded-lg border border-[#22222b]/50"
+                        >
+                          <Settings size={12} />
+                          配置特质
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          {/* Run/Rerun Button */}
+                          {onRerun && (
+                            <button
+                              onClick={() => onRerun(role)}
+                              title="从此岗位开始，链条重跑生成下游资产"
+                              className="flex items-center gap-1 text-[11px] text-[#E2AB46] bg-[#E2AB46]/5 hover:bg-[#E2AB46]/10 hover:text-white border border-[#E2AB46]/20 py-1 px-2.5 rounded-lg transition-colors font-medium"
+                            >
+                              <Play size={10} fill="currentColor" />
+                              一键重调
+                            </button>
+                          )}
+
+                          {/* Edit Output Button */}
+                          {status === 'done' && (
+                            <button
+                              onClick={() => onEdit(role)}
+                              className="flex items-center gap-1 text-[11px] text-white bg-[#34A853]/10 hover:bg-[#34A853]/20 border border-[#34A853]/30 py-1 px-2.5 rounded-lg transition-colors"
+                            >
+                              <FileText size={12} />
+                              编辑产出
+                            </button>
+                          )}
+
+                          {/* Delete from flow */}
+                          <button
+                            onClick={() => removeAgentFromFlow(role)}
+                            title="撤销进组/移出工作链"
+                            className="text-[#555] hover:text-red-400 p-1 rounded hover:bg-white/5 transition-colors"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
-

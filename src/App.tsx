@@ -1,213 +1,170 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ProductionPage } from './ui/pages/ProductionPage'
-import { AgentConsole } from './ui/pages/AgentConsole'
-import { useProductionStore } from './state/store'
-import { Home, Folder, Layers, Users, Image as ImageIcon, Clock, Settings, Search, Plus, Play, ChevronDown, Bell, HelpCircle, User } from 'lucide-react'
+import { 
+  Home, Folder, Layers, Users, Image as ImageIcon, Clock, Settings, 
+  Bell, Palette, Check 
+} from 'lucide-react'
 
+import { SettingsModal } from './ui/components/SettingsModal'
 import { AgentMarket } from './ui/pages/AgentMarket'
+import { HomePage } from './ui/pages/HomePage'
+import { useGlobalTheme } from './utils/theme'
 
 type Tab = 'home' | 'projects' | 'production' | 'market' | 'assets' | 'history'
 
 function App() {
-  const [tab, setTab] = useState<Tab>('production')
-  const [dark] = useState(true) // Enforce dark mode for technical tool aesthetic
-  const isRunning = useProductionStore((s) => s.isRunning)
+  const [tab, setTab] = useState<Tab>('home')
   const [showSettings, setShowSettings] = useState(false)
+  const { theme, switchTheme, presets } = useGlobalTheme()
+  const [showThemeSelector, setShowThemeSelector] = useState(false)
+  const themeSelectorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    document.documentElement.classList.add('dark', 'light')
-    document.documentElement.classList.toggle('light', !dark)
-    document.documentElement.style.colorScheme = 'dark'
-  }, [dark])
+    // Sync document element attributes with the initial theme
+    if (theme.isDark) {
+      document.documentElement.classList.add('dark')
+      document.documentElement.classList.remove('light')
+      document.documentElement.style.colorScheme = 'dark'
+    } else {
+      document.documentElement.classList.add('light')
+      document.documentElement.classList.remove('dark')
+      document.documentElement.style.colorScheme = 'light'
+    }
+  }, [theme])
+
+  // Close theme selector clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (themeSelectorRef.current && !themeSelectorRef.current.contains(event.target as Node)) {
+        setShowThemeSelector(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   return (
-    <div className="flex h-screen w-full bg-[#0E0E11] text-[#e5e5e5] font-sans overflow-hidden">
+    <div className={`flex h-screen w-full ${theme.bgMain} ${theme.textMain} font-sans overflow-hidden transition-colors duration-200`}>
       {/* Sidebar Rail */}
-      <aside className="w-20 border-r border-[#1C1C21] bg-[#121214] flex flex-col items-center py-6 justify-between z-20">
-        <div className="flex flex-col items-center gap-6 w-full">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#CD9D36] to-[#E2AB46] flex items-center justify-center mb-2 shadow-[0_0_15px_rgba(205,157,54,0.3)]">
-             <Layers size={20} className="text-[#121214]" />
-          </div>
-
-          <button
-            onClick={() => setTab('home')}
-            className={`flex flex-col items-center gap-1.5 w-full transition-all ${
-              tab === 'home'
-                ? 'text-[#E2AB46]'
-                : 'text-[#66666e] hover:text-[#e5e5e5]'
-            }`}
-          >
-            <Home size={22} strokeWidth={1.5} />
-            <span className="text-[10px]">首页</span>
+      <aside className="flex flex-col justify-center flex-shrink-0 z-20 bg-transparent py-4 pl-4 pr-2 h-full">
+        <div className={`w-[56px] py-4 rounded-full ${theme.bgSidebar} shadow-sm border ${theme.borderColorLight} flex flex-col items-center gap-4 transition-colors duration-200`}>
+          <button onClick={() => setTab('home')} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${tab === 'home' ? (theme.isDark ? 'bg-zinc-805 text-white shadow-md bg-white/10' : 'bg-gray-100 text-black shadow-sm') : (theme.isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')} flex-shrink-0`}>
+            <Home size={18} strokeWidth={2} />
           </button>
-
-          <button
-            onClick={() => setTab('projects')}
-            className={`flex flex-col items-center gap-1.5 w-full transition-all ${
-              tab === 'projects'
-                ? 'text-[#E2AB46]'
-                : 'text-[#66666e] hover:text-[#e5e5e5]'
-            }`}
-          >
-            <Folder size={22} strokeWidth={1.5} />
-            <span className="text-[10px]">项目</span>
+          <button onClick={() => setTab('projects')} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${tab === 'projects' ? (theme.isDark ? 'bg-zinc-805 text-white shadow-md bg-white/10' : 'bg-gray-100 text-black shadow-sm') : (theme.isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')} flex-shrink-0`}>
+            <Folder size={18} strokeWidth={2} />
           </button>
-
-          <button
-            onClick={() => setTab('production')}
-            className={`flex flex-col items-center justify-center gap-1.5 w-full py-2 transition-all ${
-              tab === 'production'
-                ? 'text-[#E2AB46] relative'
-                : 'text-[#66666e] hover:text-[#e5e5e5]'
-            }`}
-          >
-            {tab === 'production' && <div className="absolute left-0 w-1 h-8 bg-[#E2AB46] rounded-r-full" />}
-            <Layers size={22} strokeWidth={1.5} />
-            <span className="text-[10px]">工作流</span>
+          <button onClick={() => setTab('production')} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${tab === 'production' ? (theme.isDark ? 'bg-zinc-805 text-white shadow-md bg-white/10' : 'bg-gray-100 text-black shadow-sm') : (theme.isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')} flex-shrink-0`}>
+             <Layers size={18} strokeWidth={2} />
           </button>
-
-          <button
-            onClick={() => setTab('market')}
-            className={`flex flex-col items-center gap-1.5 w-full transition-all ${
-              tab === 'market'
-                ? 'text-[#E2AB46]'
-                : 'text-[#66666e] hover:text-[#e5e5e5]'
-            }`}
-          >
-            <Users size={22} strokeWidth={1.5} />
-            <span className="text-[10px]">Agent库</span>
+          <button onClick={() => setTab('market')} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${tab === 'market' ? (theme.isDark ? 'bg-zinc-805 text-white shadow-md bg-white/10' : 'bg-gray-100 text-black shadow-sm') : (theme.isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')} flex-shrink-0`}>
+            <Users size={18} strokeWidth={2} />
           </button>
-
-          <button
-            onClick={() => setTab('assets')}
-            className={`flex flex-col items-center gap-1.5 w-full transition-all ${
-              tab === 'assets'
-                ? 'text-[#E2AB46]'
-                : 'text-[#66666e] hover:text-[#e5e5e5]'
-            }`}
-          >
-            <ImageIcon size={22} strokeWidth={1.5} />
-            <span className="text-[10px]">资产库</span>
+          <button onClick={() => setTab('assets')} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${tab === 'assets' ? (theme.isDark ? 'bg-zinc-805 text-white shadow-md bg-white/10' : 'bg-gray-100 text-black shadow-sm') : (theme.isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')} flex-shrink-0`}>
+            <ImageIcon size={18} strokeWidth={2} />
           </button>
-
-          <button
-            onClick={() => setTab('history')}
-            className={`flex flex-col items-center gap-1.5 w-full transition-all ${
-              tab === 'history'
-                ? 'text-[#E2AB46]'
-                : 'text-[#66666e] hover:text-[#e5e5e5]'
-            }`}
-          >
-            <Clock size={22} strokeWidth={1.5} />
-            <span className="text-[10px]">历史</span>
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center gap-4 w-full">
-          <button
-            onClick={() => setShowSettings(true)}
-            className="flex flex-col items-center gap-1.5 text-[#66666e] hover:text-[#e5e5e5] transition-colors w-full"
-          >
-            <Settings size={22} strokeWidth={1.5} />
-            <span className="text-[10px]">设置</span>
+          <div className={`w-6 border-t ${theme.isDark ? 'border-white/5' : 'border-gray-100'} flex-shrink-0`}></div>
+          <button onClick={() => setTab('history')} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${tab === 'history' ? (theme.isDark ? 'bg-zinc-805 text-white shadow-md bg-white/10' : 'bg-gray-100 text-black shadow-sm') : (theme.isDark ? 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50')} flex-shrink-0`}>
+            <Clock size={18} strokeWidth={2} />
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#0E0E11] relative">
+      <main className="flex-1 flex flex-col min-w-0 bg-transparent relative">
         {/* Header Ribbon */}
-        <header className="h-16 border-b border-[#1C1C21] flex items-center px-6 justify-between shrink-0 bg-[#0E0E11] z-10 w-full relative">
-          <div className="flex items-center gap-6">
-             <div className="flex items-center gap-2">
-                <h1 className="font-display font-semibold tracking-wide text-[16px] text-[#e5e5e5]">
-                  FilmAI Studio
-                </h1>
-             </div>
-             
-             <div className="flex items-center gap-2 text-[13px] text-[#66666e]">
-                <span>项目</span>
-                <span>/</span>
-                <span>《未来之战》</span>
-                <span>/</span>
-                <span className="text-[#e5e5e5]">电影创作流程_v3</span>
-             </div>
-          </div>
-
-          <div className="flex flex-1 max-w-md mx-8">
-            <div className="relative w-full">
-               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#444]" />
-               <input 
-                 type="text" 
-                 placeholder="搜索节点、Agent、素材、工作流..." 
-                 className="w-full bg-[#1A1A1F] border border-[#2A2A35] rounded-full pl-9 pr-10 py-1.5 text-[13px] text-[#eee] focus:outline-none focus:border-[#E2AB46] transition-colors"
-               />
-               <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-[#444] text-[10px] bg-[#222] px-1.5 py-0.5 rounded">
-                 <span className="font-sans">⌘</span>
-                 <span className="font-sans">K</span>
-               </span>
+        <header className="px-6 mt-6 mb-2 flex items-center justify-between shrink-0 z-10 w-full relative transition-colors duration-200">
+          
+          {/* Left Logo */}
+          <div className="flex items-center gap-3 bg-transparent md:w-64 min-w-[200px]">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-[#E55A30] shadow-sm"></div>
+              <div className={`w-1.5 h-1.5 rounded-full ${theme.isDark ? 'bg-white/80' : 'bg-black/80'}`}></div>
             </div>
+            <h1 className={`font-display font-bold tracking-tight text-[18px] ${theme.textTitle}`}>
+              MZOO STUDIO
+            </h1>
           </div>
 
-          <div className="flex items-center gap-4">
-             <div className="flex items-center gap-2 text-sm">
-                <button className="flex items-center gap-1.5 px-4 py-1.5 bg-transparent border border-[#2A2A35] hover:bg-[#1A1A1F] text-[#e5e5e5] rounded-md transition-colors">
-                  <Plus size={14} />
-                  新建流程
-                </button>
-                <button className="flex items-center gap-1.5 px-5 py-1.5 bg-[#BFA162] hover:bg-[#D5B064] text-[#121214] font-medium rounded-md transition-colors">
-                  <Play size={14} fill="currentColor" />
-                  运行
-                </button>
-                <button className="flex items-center gap-1.5 px-4 py-1.5 bg-[#1A1A1F] border border-[#2A2A35] hover:bg-[#22222A] text-[#e5e5e5] rounded-md transition-colors">
-                  发布
-                  <ChevronDown size={14} />
+          {/* Center Tabs & Search */}
+          <div className="flex flex-1 justify-center max-w-2xl px-4">
+             <div className={`flex ${theme.bgSidebar} shadow-sm px-1.5 py-1.5 rounded-full items-center gap-1 border ${theme.borderColorLight}`}>
+                <button className={`px-5 py-2 text-[14px] font-medium rounded-full transition-all ${tab === 'production' ? (theme.isDark ? 'bg-white/10 text-white shadow' : 'bg-black text-white shadow-md') : (theme.isDark ? 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5' : 'text-gray-500 hover:text-black hover:bg-gray-50')}`} onClick={() => setTab('production')}>工作台</button>
+                <button className={`px-5 py-2 text-[14px] font-medium rounded-full transition-all flex items-center gap-1.5 ${tab === 'market' ? (theme.isDark ? 'bg-white/10 text-white shadow' : 'bg-black text-white shadow-md') : (theme.isDark ? 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5' : 'text-gray-500 hover:text-black hover:bg-gray-50')}`} onClick={() => setTab('market')}><Users size={15}/> 节点库</button>
+                <button className={`px-5 py-2 flex items-center gap-1.5 text-[14px] font-medium rounded-full transition-all ${theme.isDark ? 'text-zinc-400 hover:text-zinc-100 hover:bg-white/5' : 'text-gray-500 hover:text-black hover:bg-gray-50'}`} onClick={() => setShowSettings(true)}>
+                   <Settings size={15} /> 设置
                 </button>
              </div>
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center justify-end gap-3 md:w-64 min-w-[200px]">
+             <button className={`w-11 h-11 rounded-full ${theme.bgSidebar} shadow-sm flex items-center justify-center border ${theme.borderColorLight} transition-colors ${theme.isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900'}`}>
+                <Bell size={20} />
+             </button>
              
-             <div className="w-[1px] h-4 bg-[#2A2A35] mx-2"></div>
-             
-             <div className="flex items-center gap-3 text-[#888]">
-                <div className="relative cursor-pointer hover:text-[#e5e5e5] transition-colors">
-                  <Bell size={18} />
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#E2AB46] rounded-full text-[#121214] text-[8px] flex items-center justify-center font-bold">8</span>
-                </div>
-                <HelpCircle size={18} className="cursor-pointer hover:text-[#e5e5e5] transition-colors" />
-                <div className="flex items-center gap-2 cursor-pointer hover:text-[#e5e5e5] transition-colors pl-2">
-                  <div className="w-6 h-6 rounded-full bg-[#2A2A35] flex items-center justify-center flex-shrink-0">
-                    <User size={14} />
-                  </div>
-                  <span className="text-[13px]">张导演</span>
-                  <ChevronDown size={14} />
+             {/* Theme Selector */}
+             <div className="relative" ref={themeSelectorRef}>
+                 <button 
+                   onClick={() => setShowThemeSelector(!showThemeSelector)}
+                   className={`w-11 h-11 rounded-full ${theme.bgSidebar} shadow-sm flex items-center justify-center border ${theme.borderColorLight} transition-colors ${theme.isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900'}`}
+                 >
+                   <Palette size={20} />
+                 </button>
+                 {showThemeSelector && (
+                    <div className={`absolute right-0 top-14 w-64 rounded-2xl shadow-xl ${theme.bgSidebar} border ${theme.borderColorLight} p-2 z-50 text-left animate-in fade-in duration-100`}>
+                      <div className={`px-3 py-2 border-b ${theme.borderColorLight} mb-2`}>
+                        <span className={`text-[12px] font-medium ${theme.textTitle}`}>外观主题</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {presets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            onClick={() => {
+                              switchTheme(preset.id)
+                              setShowThemeSelector(false)
+                            }}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${preset.id === theme.id ? (theme.isDark ? 'bg-white/10 text-white font-medium' : 'bg-black/5 text-black font-medium') : (theme.isDark ? 'text-zinc-400 hover:bg-white/5 hover:text-white' : 'text-gray-600 hover:bg-gray-50')}`}
+                          >
+                            <span className="text-lg leading-none">{preset.icon}</span>
+                            <span className="text-[13px]">{preset.name}</span>
+                            {preset.id === theme.id && <Check size={14} className="ml-auto opacity-60" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+             </div>
+             <div className={`h-11 px-1.5 py-1.5 rounded-full ${theme.bgSidebar} shadow-sm flex items-center border ${theme.borderColorLight} cursor-pointer transition-colors ml-1 ${theme.isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
+                <div className="w-8 h-8 rounded-full bg-[#E55A30]/20 flex items-center justify-center overflow-hidden">
+                   <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Uzui" alt="User Avatar" className="w-full h-full object-cover" />
                 </div>
              </div>
           </div>
         </header>
 
         {/* Page Routing */}
+        <SettingsModal show={showSettings} onClose={() => setShowSettings(false)} />
         <div className="flex-1 overflow-hidden relative">
-          {tab === 'production' && <ProductionPage showSettings={showSettings} setShowSettings={setShowSettings} />}
+          {tab === 'production' && <ProductionPage />}
           {tab === 'market' && <AgentMarket />}
-          {tab === 'home' && (
-            <div className="flex w-full h-full items-center justify-center text-[#666] flex-col gap-3">
-              <Home size={48} strokeWidth={1} opacity={0.3} />
-              <p className="text-sm">首页功能即将开启 (WIP)</p>
-            </div>
-          )}
+          {tab === 'home' && <HomePage setTab={setTab} />}
           {tab === 'projects' && (
-            <div className="flex w-full h-full items-center justify-center text-[#666] flex-col gap-3">
+            <div className="flex w-full h-full items-center justify-center text-gray-500 flex-col gap-3">
               <Folder size={48} strokeWidth={1} opacity={0.3} />
               <p className="text-sm">项目管理功能即将开启 (WIP)</p>
             </div>
           )}
           {tab === 'assets' && (
-            <div className="flex w-full h-full items-center justify-center text-[#666] flex-col gap-3">
+            <div className="flex w-full h-full items-center justify-center text-gray-500 flex-col gap-3">
               <ImageIcon size={48} strokeWidth={1} opacity={0.3} />
               <p className="text-sm">资产收纳与管理即将开启 (WIP)</p>
             </div>
           )}
           {tab === 'history' && (
-             <div className="flex w-full h-full items-center justify-center text-[#666] flex-col gap-3">
+             <div className="flex w-full h-full items-center justify-center text-gray-500 flex-col gap-3">
               <Clock size={48} strokeWidth={1} opacity={0.3} />
               <p className="text-sm">历史记录功能即将开启 (WIP)</p>
             </div>

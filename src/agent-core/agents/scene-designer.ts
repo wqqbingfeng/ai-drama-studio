@@ -3,7 +3,7 @@ import { AgentContext } from '../types'
 import type { SceneDesign } from '../../models/scene'
 import type { Script } from '../../models/script'
 
-const SYSTEM_PROMPT = `你是一位场景设计师，负责为剧本中的每个场景进行详细设计。
+const SYSTEM_PROMPT = `你是一位专业的场景美术指导，负责为剧本设计核心场景的美术概念。
 
 你的任务：
 1. 分析剧本中的场景描述

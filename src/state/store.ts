@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { AgentOutput, AgentRole, ProductionPlan } from '../models/production'
 import { AgentLabels } from '../models/production'
-import { TaskFlow, DEFAULT_PRODUCTION_FLOW } from '../models/workflow'
+import { TaskFlow, DEFAULT_PRODUCTION_FLOW, STREAMLINED_PRODUCTION_FLOW } from '../models/workflow'
 
 interface LogEntry {
   agent: AgentRole
@@ -23,6 +23,8 @@ interface ProductionState {
   // 工作流
   flow: TaskFlow
   setFlow: (flow: TaskFlow) => void
+  flowMode: 'default' | 'streamlined'
+  setFlowMode: (mode: 'default' | 'streamlined') => void
 
   // Agent 配置
   agentConfigs: Partial<Record<AgentRole, AgentConfig>>
@@ -58,10 +60,36 @@ interface ProductionState {
   clearDownstreamOutputs: (fromRole: AgentRole) => void
 }
 
-export const useProductionStore = create<ProductionState>((set, get) => ({
+function sortFlowTopologically(flow: TaskFlow): TaskFlow {
+  const sorted: TaskFlow = []
+  const visited = new Set<string>()
+  const visiting = new Set<string>()
+
+  function visit(role: AgentRole) {
+    if (visited.has(role)) return
+    if (visiting.has(role)) return // Break simple dependency cycles
+    visiting.add(role)
+
+    const task = flow.find(f => f.role === role)
+    if (task) {
+      task.dependsOn.forEach((dep) => {
+        visit(dep)
+      })
+      sorted.push(task)
+    }
+    visiting.delete(role)
+    visited.add(role)
+  }
+
+  flow.forEach((f) => visit(f.role))
+  return sorted
+}
+
+export const useProductionStore = create<ProductionState>((set) => ({
   userInput: '',
   plan: null,
   flow: DEFAULT_PRODUCTION_FLOW,
+  flowMode: 'default',
   agentConfigs: {},
   outputs: {} as Record<AgentRole, AgentOutput | null>,
   logs: [],
@@ -69,7 +97,11 @@ export const useProductionStore = create<ProductionState>((set, get) => ({
   currentAgent: null,
   notification: null,
 
-  setFlow: (flow) => set({ flow }),
+  setFlow: (flow) => set({ flow: sortFlowTopologically(flow) }),
+  setFlowMode: (mode) => set({
+    flowMode: mode,
+    flow: mode === 'streamlined' ? STREAMLINED_PRODUCTION_FLOW : DEFAULT_PRODUCTION_FLOW
+  }),
   setAgentConfig: (role, config) => set((state) => ({
     agentConfigs: { ...state.agentConfigs, [role]: { ...state.agentConfigs[role], ...config } }
   })),

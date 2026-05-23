@@ -5,12 +5,16 @@ import { AudioLines, Clapperboard, Palette, MapPin, Camera, Film } from 'lucide-
 
 const roleIcons: Record<AgentRole, typeof AudioLines> = {
   orchestrator: Clapperboard,
+  producer: Clapperboard,
   screenwriter: AudioLines,
   character_designer: Palette,
   scene_designer: MapPin,
+  prop_designer: Palette,
   director: Camera,
   cinematographer: Camera,
+  vfx_designer: Camera,
   post_production: Film,
+  art_designer: Palette,
 }
 
 const statusColor: Record<string, string> = {

@@ -2,5 +2,5 @@
   "name": "AI Drama Studio",
   "description": "A multi-agent production framework.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

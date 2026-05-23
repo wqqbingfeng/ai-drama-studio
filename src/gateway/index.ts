@@ -10,7 +10,10 @@ class GatewayRouter implements IGateway {
   private config: GatewayConfig
 
   constructor(config: GatewayConfig) {
-    this.config = config
+    this.config = { ...config }
+    if (!this.config.apiKey) {
+      this.config.apiKey = import.meta.env.VITE_GEMINI_API_KEY || ''
+    }
   }
 
   async think(system: string, messages: ChatMessage[], options?: ThinkOptions): Promise<string> {

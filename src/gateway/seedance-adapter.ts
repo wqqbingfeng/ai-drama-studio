@@ -10,6 +10,7 @@ export class SeedanceAdapter implements IGateway {
   }
 
   async generateVideo(_spec: VideoSpec): Promise<VideoResult> {
+    void _spec;
     // TODO: implement Seedance 2.0 API call
     throw new Error('Seedance 2.0 not yet configured')
   }

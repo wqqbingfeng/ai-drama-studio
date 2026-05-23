@@ -10,18 +10,22 @@ import type { AgentRole, AgentOutput } from '../../models/production'
 import { AgentLabels } from '../../models/production'
 
 const ALL_AGENTS: AgentRole[] = [
-  'screenwriter', 'character_designer', 'scene_designer',
-  'director', 'cinematographer', 'post_production',
+  'producer', 'screenwriter', 'character_designer', 'scene_designer',
+  'prop_designer', 'director', 'cinematographer', 'vfx_designer', 'post_production', 'art_designer',
 ]
 
 const roleIcons: Record<AgentRole, typeof AudioLines> = {
   orchestrator: Clapperboard,
+  producer: Clapperboard,
   screenwriter: AudioLines,
   character_designer: Palette,
   scene_designer: MapPin,
+  prop_designer: Palette,
   director: Camera,
   cinematographer: Camera,
+  vfx_designer: Camera,
   post_production: Film,
+  art_designer: Palette,
 }
 
 function statusIcon(status: string) {

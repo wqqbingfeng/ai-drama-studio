@@ -63,38 +63,51 @@ export default class PostProductionAgent extends BaseAgent {
 
   protected async run(ctx: AgentContext): Promise<{ data: unknown; summary: string }> {
     const script = ctx.getArtifact<Script>('screenwriter')
-    const characters = ctx.getArtifact<CharacterCardOutput>('character_designer')
-    const scenes = ctx.getArtifact<SceneDesign>('scene_designer')
+    let characters = ctx.getArtifact<CharacterCardOutput>('character_designer')
+    let scenes = ctx.getArtifact<{ scenes: SceneDesign[] }>('scene_designer')
+    interface ArtDesignerOutput {
+      characters?: CharacterCardOutput['characters']
+      scenes?: SceneDesign[]
+    }
+    const artDesignerOutput = ctx.getArtifact<ArtDesignerOutput>('art_designer')
+    if (artDesignerOutput) {
+      if (!characters && artDesignerOutput.characters) {
+        characters = { characters: artDesignerOutput.characters }
+      }
+      if (!scenes && artDesignerOutput.scenes) {
+        scenes = { scenes: artDesignerOutput.scenes }
+      }
+    }
     const storyboard = ctx.getArtifact<Storyboard>('director')
     const cinematography = ctx.getArtifact<unknown>('cinematographer')
 
     // 收集所有上游产出
     const upstreamData = {
-      script: script ? { title: script.title, genre: (script as any).genre, characterCount: script.characters?.length, sceneCount: script.scenes?.length } : null,
-      characters: characters?.characters?.map((c: any) => ({
-        name: c.name,
-        role: c.role,
-        imagePrompt: c.imagePrompt,
-        appearance: c.appearance,
+      script: script ? { title: script.title, genre: (script as unknown as Record<string, unknown>).genre, characterCount: script.characters?.length, sceneCount: script.scenes?.length } : null,
+      characters: characters?.characters?.map((c) => ({
+        name: (c as unknown as Record<string, unknown>).name,
+        role: (c as unknown as Record<string, unknown>).role,
+        imagePrompt: (c as unknown as Record<string, unknown>).imagePrompt,
+        appearance: (c as unknown as Record<string, unknown>).appearance,
       })) ?? [],
-      scenes: (scenes as any)?.scenes?.map((s: any) => ({
+      scenes: (scenes as unknown as Record<string, unknown>)?.scenes ? ((scenes as unknown as Record<string, unknown>).scenes as Record<string, unknown>[]).map((s) => ({
         id: s.id,
         name: s.name,
         location: s.location,
         imagePrompt: s.imagePrompt,
+      })) : [],
+      storyboard: storyboard?.shots?.map((s) => ({
+        id: (s as unknown as Record<string, unknown>).id,
+        shotNumber: (s as unknown as Record<string, unknown>).shotNumber,
+        description: (s as unknown as Record<string, unknown>).description,
+        imagePrompt: (s as unknown as Record<string, unknown>).imagePrompt,
+        duration: (s as unknown as Record<string, unknown>).duration,
       })) ?? [],
-      storyboard: storyboard?.shots?.map((s: any) => ({
-        id: s.id,
-        shotNumber: s.shotNumber,
-        description: s.description,
-        imagePrompt: s.imagePrompt,
-        duration: s.duration,
-      })) ?? [],
-      cinematography: (cinematography as any)?.shots?.map((s: any) => ({
+      cinematography: (cinematography as unknown as Record<string, unknown>)?.shots ? ((cinematography as unknown as Record<string, unknown>).shots as Record<string, unknown>[]).map((s) => ({
         shotId: s.shotId,
         lens: s.lens,
         aperture: s.aperture,
-      })) ?? [],
+      })) : [],
     }
 
     // 用 LLM 整合生成制作包
@@ -114,19 +127,21 @@ ${JSON.stringify(upstreamData, null, 2)}
       },
     ])
 
-    const data = result as any
-    const imgCount = data.imageGenerationQueue?.length ?? 0
-    const shotCount = data.videoShotList?.length ?? 0
+    const data = result as Record<string, unknown>
+    const imageQueue = data.imageGenerationQueue as Record<string, unknown>[] | undefined
+    const imgCount = imageQueue?.length ?? 0
+    const videoQueue = data.videoShotList as Record<string, unknown>[] | undefined
+    const shotCount = videoQueue?.length ?? 0
 
     // 尝试调用 Gateway 生成一张示例图（如果 API 已配置）
     let generationNote = ''
-    if (data.imageGenerationQueue?.length > 0) {
-      const firstAsset = data.imageGenerationQueue[0]
+    if (imageQueue && imageQueue.length > 0) {
+      const firstAsset = imageQueue[0]
       try {
         const imgResult = await ctx.gateway.generateImage({
-          prompt: firstAsset.prompt,
-          size: firstAsset.size || 'portrait',
-          style: firstAsset.style,
+          prompt: firstAsset.prompt as string,
+          size: (firstAsset.size as 'portrait' | 'landscape' | 'square' | undefined) || 'portrait',
+          style: firstAsset.style as string | undefined,
         })
         firstAsset.generatedUrl = imgResult.url
         generationNote = `已生成 ${firstAsset.name} 的示例图`

@@ -1,7 +1,6 @@
-import { motion } from 'framer-motion'
 import type { AgentOutput } from '../../models/production'
-import { AgentRole, AgentLabels } from '../../models/production'
-import { FileCode, Play, Image as ImageIcon, Text, Scissors } from 'lucide-react'
+import { AgentLabels } from '../../models/production'
+import { FileCode, Play, Text } from 'lucide-react'
 
 // Use some placeholder images for the different types of artifacts to mimic the reference image
 const roleImageMap: Record<string, { src: string, type: 'video' | 'image' | 'text', count: string }> = {
@@ -77,15 +76,15 @@ function EmptyState() {
 }
 
 export function ArtifactPanel({ outputs }: { outputs: Record<string, AgentOutput | null> }) {
-  const doneOutputs = Object.entries(outputs).filter(
-    ([, o]) => o?.status === 'done' && o.data,
+  const doneOutputs = Object.values(outputs).filter(
+    (o) => o?.status === 'done' && o.data,
   )
 
   if (doneOutputs.length === 0) return <EmptyState />
 
   return (
     <div className="flex gap-4 overflow-x-auto custom-scrollbar w-full h-full p-2 pb-4">
-      {doneOutputs.map(([_, output], idx) => (
+      {doneOutputs.map((output, idx) => (
         <ArtifactCard key={output!.id} output={output!} version={idx + 1} />
       ))}
     </div>

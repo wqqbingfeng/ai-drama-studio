@@ -3,7 +3,7 @@ import { AgentContext } from '../types'
 import type { CharacterCardOutput } from '../../models/character'
 import type { Script } from '../../models/script'
 
-const SYSTEM_PROMPT = `你是一位资深角色设计师，负责为剧本中的每个角色创建详细的角色卡。
+const SYSTEM_PROMPT = `你是一位业内知名的角色主设计师，负责为剧本中的每个角色创建详细的角色卡。
 
 你的任务：
 1. 分析剧本中的角色描述

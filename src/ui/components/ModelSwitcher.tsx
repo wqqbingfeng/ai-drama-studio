@@ -1,3 +1,4 @@
+import { createGateway } from '../../gateway'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Gauge, Check } from 'lucide-react'
@@ -25,20 +26,24 @@ function loadModels(): ModelEntry[] {
   try {
     const raw = localStorage.getItem(SPEED_STORAGE_KEY)
     if (raw) return JSON.parse(raw)
-  } catch {}
+  } catch (e) { console.warn(e) }
   return PRESET_MODELS.map((name) => ({ name }))
 }
 
 function saveModels(models: ModelEntry[]) {
-  localStorage.setItem(SPEED_STORAGE_KEY, JSON.stringify(models))
-}
-
-function loadSelected(): string {
-  return localStorage.getItem(SELECTED_KEY) || 'gpt-5.5'
+  try {
+    localStorage.setItem(SPEED_STORAGE_KEY, JSON.stringify(models))
+  } catch (err) {
+    console.warn('Failed to save models to localStorage:', err)
+  }
 }
 
 function saveSelected(model: string) {
-  localStorage.setItem(SELECTED_KEY, model)
+  try {
+    localStorage.setItem(SELECTED_KEY, model)
+  } catch (err) {
+    console.warn('Failed to save selected model to localStorage:', err)
+  }
 }
 
 function speedColor(ms: number | undefined): string {
@@ -116,84 +121,26 @@ export function ModelSwitcher({ endpoint, apiKey, currentModel, onSelectModel }:
     setNewModelName('')
   }
 
-  const normalizeEndpoint = (url: string): string => {
-    // 代理路径不自动补全
-    if (url.startsWith('/api/') || url.includes(':5174')) {
-      return url
-    }
-    if (!url.includes('/v1/') && !url.endsWith('/chat/completions')) {
-      if (url.endsWith('/')) url = url.slice(0, -1)
-      return url + '/v1/chat/completions'
-    }
-    return url
-  }
-
   const testOneModel = async (modelName: string, signal: AbortSignal): Promise<{ speed: number } | { error: string }> => {
-    const body = {
-      model: modelName,
-      messages: [
-        { role: 'system', content: 'Reply with exactly "OK" and nothing else.' },
-        { role: 'user', content: 'Ping' },
-      ],
-      temperature: 0,
-      max_tokens: 10,
-    }
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
-
-    const url = normalizeEndpoint(endpoint)
     const start = performance.now()
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal,
+      const g = createGateway({
+        endpoint: endpoint,
+        apiKey: apiKey,
+        model: modelName
       })
+      
+      await g.think(
+        'Reply with OK',
+        [{ role: 'user', content: 'Ping' }],
+        { temperature: 0.1 }
+      )
 
-      const elapsed = Math.round(performance.now() - start)
-
-      if (!res.ok) {
-        const text = await res.text().catch(() => '')
-        // 如果返回的是 HTML，说明端点地址不对
-        if (text.trim().startsWith('<!') || text.trim().startsWith('<html')) {
-          return { error: '端点返回了网页，请检查中转站地址格式' }
-        }
-        return { error: `HTTP ${res.status}${text ? ': ' + text.slice(0, 80) : ''}` }
-      }
-
-      // 先检查 Content-Type，防止把 HTML 当 JSON 解析
-      const ct = res.headers.get('content-type') || ''
-      if (!ct.includes('json')) {
-        const text = await res.text().catch(() => '')
-        if (text.trim().startsWith('<!') || text.trim().startsWith('<html')) {
-          return { error: '端点返回了网页，请检查中转站地址格式' }
-        }
-        return { error: `非JSON响应 (${ct.slice(0, 40)})` }
-      }
-
-      const data = await res.json()
-      const content = data.choices?.[0]?.message?.content ?? data.response ?? ''
-      if (!content && content !== '') {
-        return { error: '空响应' }
-      }
-
-      return { speed: elapsed }
+      if (signal.aborted) return { error: '已取消' }
+      return { speed: Math.round(performance.now() - start) }
     } catch (err) {
-      if ((err as Error).name === 'AbortError') {
-        return { error: '已取消' }
-      }
-      const msg = String(err)
-      // SyntaxError about JSON means HTML returned as 200
-      if (msg.includes('is not valid JSON') || msg.includes('Unexpected token')) {
-        return { error: '端点返回了网页，请检查中转站地址格式' }
-      }
-      // Network errors (CORS, connection refused, etc.)
-      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-        return { error: `无法连接到 ${url}，检查 cc-switch 是否已开启路由，端口是否正确` }
-      }
-      return { error: msg.slice(0, 100) }
+      if (signal.aborted) return { error: '已取消' }
+      return { error: String(err).slice(0, 100) }
     }
   }
 
@@ -227,7 +174,8 @@ export function ModelSwitcher({ endpoint, apiKey, currentModel, onSelectModel }:
     setTestProgress(null)
     setTesting(false)
     abortRef.current = null
-  }, [models, endpoint, apiKey, testing])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models, testing])
 
   const handleCancelTest = () => {
     abortRef.current?.abort()

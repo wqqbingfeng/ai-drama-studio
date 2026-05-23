@@ -26,12 +26,24 @@ export class GeminiAdapter {
     options?: ThinkOptions,
   ): Promise<string> {
     const { endpoint, apiKey } = this.config
+    const rawModel = this.config.model || 'gemini-2.0-flash'
+    let modelName = 'gemini-2.0-flash'
+    
+    // Map fictional or unsupported models to a known working model 
+    if (rawModel.includes('pro')) {
+      modelName = 'gemini-1.5-pro'
+    } else if (rawModel.includes('flash') || rawModel.includes('gemini')) {
+      modelName = 'gemini-2.0-flash'
+    } else if (rawModel) {
+      // For any other model from standard proxy
+      modelName = rawModel
+    }
 
     if (endpoint) {
       const normalizedEndpoint = this.normalizeEndpoint(endpoint)
       // 中转站模式 — 使用 OpenAI 兼容格式
       const body = {
-        model: this.config.model || 'gemini-3.1-pro-preview',
+        model: modelName,
         messages: [
           { role: 'system', content: system },
           ...messages.map((m) => ({
@@ -72,7 +84,7 @@ export class GeminiAdapter {
     }
 
     // 直连模式 — 直接调 Gemini API
-    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${this.config.model || 'gemini-3.1-pro-preview'}:generateContent`
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`
     const contents = messages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
@@ -103,10 +115,12 @@ export class GeminiAdapter {
   }
 
   generateImage(_prompt: ImagePrompt): Promise<ImageResult> {
+    void _prompt;
     throw new Error('GPT Image 2 adapter required for image generation')
   }
 
   generateVideo(_spec: VideoSpec): Promise<VideoResult> {
+    void _spec;
     throw new Error('Seedance adapter required for video generation')
   }
 }
